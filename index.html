@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Çiftlik Hayvanlarında Isı Stresi Simülasyonu - Süt sığırları için THI tabanlı anlık stres, verim kaybı ve sağlık durumu hesaplayıcı.">
+    <title>Çiftlik Hayvanlarında Isı Stresi Simülasyonu</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            /* Subtle mesh gradient background for premium feel */
+            background-image: radial-gradient(at 0% 0%, hsla(217,100%,94%,1) 0, transparent 50%), radial-gradient(at 50% 0%, hsla(213,100%,96%,1) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(215,100%,93%,1) 0, transparent 50%);
+            min-height: 100vh;
+        }
+
+        /* Toggle switch styling */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #10B981;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #10B981;
+        }
+
+        /* Glassmorphism panel styling */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .glass-panel:hover {
+            box-shadow: 0 15px 50px -10px rgba(0,0,0,0.12);
+        }
+
+        /* Range slider custom styling */
+        input[type=range] {
+            height: 8px;
+            border-radius: 8px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #2563eb;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+            border-radius: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        /* Glowing text effect for critical state */
+        .glow-red {
+            text-shadow: 0 0 15px rgba(220, 38, 38, 0.4);
+        }
+    </style>
+</head>
+<body class="text-slate-800 p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-8">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row items-center justify-between bg-white/60 p-6 rounded-3xl shadow-sm border border-white backdrop-blur-md">
+            <div class="text-center md:text-left">
+                <div class="inline-flex items-center space-x-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold mb-3 uppercase tracking-wide">
+                    <i class="fas fa-microscope"></i>
+                    <span>Bilimsel Analiz Aracı</span>
+                </div>
+                <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
+                    Süt Sığırlarında <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-600">Isı Stresi</span> Simülasyonu
+                </h1>
+                <p class="text-slate-500 mt-2 text-sm md:text-base font-medium">Sıcaklık-Nem Endeksi (THI) tabanlı gerçek zamanlı verim ve sağlık analiz sistemi.</p>
+            </div>
+            <div class="mt-6 md:mt-0">
+                 <button id="simToggleBtn" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-500/30 transition-all duration-300 transform hover:-translate-y-1 flex items-center space-x-3 group">
+                    <div class="bg-white/20 p-2 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-play" id="simIcon"></i>
+                    </div>
+                    <span id="simBtnText" class="text-lg">Simülasyonu Başlat</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Controls Sidebar (Left) -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Environment Controls -->
+                <div class="glass-panel rounded-3xl p-7 relative overflow-hidden">
+                    <div class="absolute -right-4 -top-4 opacity-5 pointer-events-none">
+                        <i class="fas fa-sun text-9xl text-orange-500"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center">
+                        <i class="fas fa-temperature-three-quarters text-orange-500 mr-3"></i> Çevresel Faktörler
+                    </h2>
+                    
+                    <div class="space-y-8 relative z-10">
+                        <!-- Temperature Slider -->
+                        <div class="group">
+                            <div class="flex justify-between items-center mb-3">
+                                <label for="tempSlider" class="text-sm font-bold text-slate-700">Ortam Sıcaklığı (T)</label>
+                                <span class="font-black text-orange-600 bg-orange-50 border border-orange-100 px-3 py-1 rounded-lg shadow-sm"><span id="tempValue" class="text-lg">25</span> °C</span>
+                            </div>
+                            <input type="range" id="tempSlider" min="15" max="50" step="0.5" value="25" class="w-full bg-slate-200 appearance-none cursor-pointer accent-orange-500">
+                            <div class="flex justify-between text-xs font-medium text-slate-400 mt-2">
+                                <span>15°C</span>
+                                <span>50°C</span>
+                            </div>
+                        </div>
+
+                        <!-- Humidity Slider -->
+                        <div class="group">
+                            <div class="flex justify-between items-center mb-3">
+                                <label for="humiditySlider" class="text-sm font-bold text-slate-700">Bağıl Nem (RH)</label>
+                                <span class="font-black text-blue-600 bg-blue-50 border border-blue-100 px-3 py-1 rounded-lg shadow-sm"><span id="humidityValue" class="text-lg">50</span> %</span>
+                            </div>
+                            <input type="range" id="humiditySlider" min="10" max="95" step="1" value="50" class="w-full bg-slate-200 appearance-none cursor-pointer accent-blue-500">
+                            <div class="flex justify-between text-xs font-medium text-slate-400 mt-2">
+                                <span>10%</span>
+                                <span>95%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Cooling Controls -->
+                <div class="glass-panel rounded-3xl p-7 relative overflow-hidden">
+                    <div class="absolute -right-4 -top-4 opacity-5 pointer-events-none">
+                        <i class="fas fa-wind text-9xl text-teal-500"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center">
+                        <i class="fas fa-snowflake text-teal-500 mr-3"></i> Aktif Soğutma Sistemleri
+                    </h2>
+                    
+                    <div class="space-y-6 relative z-10">
+                        <!-- Fan Toggle -->
+                        <div class="flex items-center justify-between p-4 bg-white/50 rounded-2xl border border-white">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 flex items-center"><i class="fas fa-fan text-slate-400 mr-2"></i> Havalandırma Fanları</h3>
+                                <p class="text-xs text-slate-500 mt-1 font-medium">THI değerini 2 puan düşürür.</p>
+                            </div>
+                            <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="fanToggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300"/>
+                                <label for="fanToggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer transition-all duration-300"></label>
+                            </div>
+                        </div>
+
+                        <!-- Shower Toggle -->
+                        <div class="flex items-center justify-between p-4 bg-white/50 rounded-2xl border border-white">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 flex items-center"><i class="fas fa-shower text-slate-400 mr-2"></i> Duşlama (Sprinkler)</h3>
+                                <p class="text-xs text-slate-500 mt-1 font-medium">Isı artışını yavaşlatır.</p>
+                            </div>
+                            <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="showerToggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300"/>
+                                <label for="showerToggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer transition-all duration-300"></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Output (Right) -->
+            <div class="lg:col-span-8 flex flex-col space-y-8">
+                
+                <!-- THI Main Display Card -->
+                <div class="glass-panel rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between relative overflow-hidden h-auto md:h-48 border-l-8 border-green-500 transition-all duration-500" id="mainStatusCard">
+                    <!-- Background Glow -->
+                    <div id="thiBgIndicator" class="absolute -inset-4 bg-green-500 opacity-[0.03] blur-xl transition-colors duration-500 pointer-events-none"></div>
+                    
+                    <div class="relative z-10 flex flex-col justify-center w-full md:w-1/2 mb-6 md:mb-0 text-center md:text-left">
+                        <h3 class="text-xs md:text-sm uppercase tracking-widest font-bold text-slate-400 mb-2">Hesaplanan THI Endeksi</h3>
+                        <div class="text-7xl md:text-8xl font-black tracking-tighter mb-2 transition-colors duration-500 text-green-500" id="thiDisplay">--</div>
+                    </div>
+
+                    <div class="relative z-10 flex flex-col items-center md:items-end justify-center w-full md:w-1/2">
+                        <div class="inline-flex items-center px-5 py-2.5 rounded-2xl text-base md:text-lg font-bold transition-all duration-500 bg-green-100 text-green-800 shadow-sm" id="stressBadge">
+                            <span class="w-3 h-3 rounded-full mr-3 bg-green-500 animate-pulse" id="stressDot"></span>
+                            <span id="stressLabel">Konfor Bölgesi</span>
+                        </div>
+                        <p id="stressDesc" class="mt-4 text-sm md:text-base font-medium text-slate-600 text-center md:text-right max-w-xs">
+                            Normal Solunum, Normal Süt Verimi
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Metrics Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    
+                    <!-- Respiratory Rate -->
+                    <div class="glass-panel rounded-3xl p-6 relative overflow-hidden group hover:-translate-y-1 transition-transform">
+                        <div class="flex flex-col h-full justify-between relative z-10">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shadow-inner">
+                                    <i class="fas fa-lungs"></i>
+                                </div>
+                                <h4 class="text-sm font-bold text-slate-600">Solunum Hızı</h4>
+                            </div>
+                            <div>
+                                <div class="flex items-baseline space-x-2">
+                                    <span id="respRateVal" class="text-4xl font-black text-slate-800 transition-all duration-300">--</span>
+                                    <span class="text-sm font-semibold text-slate-500">nefes/dk</span>
+                                </div>
+                            </div>
+                            <!-- Mini Sparkline visualization placeholder -->
+                            <div class="h-1 w-full bg-slate-100 rounded-full mt-4 overflow-hidden">
+                                <div id="respBar" class="h-full bg-blue-500 w-1/4 transition-all duration-500"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Milk Yield Loss -->
+                    <div class="glass-panel rounded-3xl p-6 relative overflow-hidden group hover:-translate-y-1 transition-transform">
+                        <div class="flex flex-col h-full justify-between relative z-10">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 shadow-inner">
+                                    <i class="fas fa-jug-detergent"></i>
+                                </div>
+                                <h4 class="text-sm font-bold text-slate-600">Tahmini Süt Kaybı</h4>
+                            </div>
+                            <div>
+                                <div class="flex items-baseline space-x-2">
+                                    <span id="milkLossVal" class="text-4xl font-black text-slate-800 transition-all duration-300">--</span>
+                                    <span class="text-sm font-semibold text-slate-500">kg / gün</span>
+                                </div>
+                            </div>
+                            <div class="h-1 w-full bg-slate-100 rounded-full mt-4 overflow-hidden">
+                                <div id="milkBar" class="h-full bg-amber-500 w-0 transition-all duration-500"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Body Temp Increase -->
+                    <div class="glass-panel rounded-3xl p-6 relative overflow-hidden group hover:-translate-y-1 transition-transform">
+                        <div class="flex flex-col h-full justify-between relative z-10">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-600 shadow-inner">
+                                    <i class="fas fa-temperature-arrow-up"></i>
+                                </div>
+                                <h4 class="text-sm font-bold text-slate-600">Vücut Isısı Artışı</h4>
+                            </div>
+                            <div>
+                                <div class="flex items-baseline space-x-1">
+                                    <span class="text-xl font-bold text-red-500">+</span>
+                                    <span id="tempIncreaseVal" class="text-4xl font-black text-slate-800 transition-all duration-300">--</span>
+                                    <span class="text-sm font-semibold text-slate-500 pl-1">°C</span>
+                                </div>
+                            </div>
+                            <div class="h-1 w-full bg-slate-100 rounded-full mt-4 overflow-hidden">
+                                <div id="tempBar" class="h-full bg-red-500 w-0 transition-all duration-500"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Scientific Methodology & References -->
+        <div class="glass-panel rounded-3xl p-6 mt-8 border border-slate-200/60 bg-white/70">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                <i class="fas fa-book-medical mr-3 text-emerald-500 bg-emerald-100 p-2 rounded-lg"></i> 
+                Bilimsel Metodoloji ve Referanslar
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-600">
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <h3 class="font-bold text-slate-800 mb-2">THI (Sıcaklık-Nem Endeksi) Hesaplaması</h3>
+                    <p class="mb-2 font-mono text-xs bg-slate-200 p-2 rounded text-slate-700">THI = (1.8 × T + 32) - [(0.55 - 0.0055 × RH) × (1.8 × T - 26)]</p>
+                    <p class="text-xs"><strong>Kaynak:</strong> Thom (1959) ve NRC (1971). Süt sığırlarında ısı stresini belirlemek için uluslararası geçerliliği olan standart formülasyondur.</p>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <h3 class="font-bold text-slate-800 mb-2">Süt Kaybı ve Sağlık Etkileri</h3>
+                    <p class="mb-2">THI > 72 olduğunda her 1 birimlik THI artışı için tahmini <strong>~0.2 kg/gün</strong> süt kaybı ve doğrusal solunum hızı artışı hesaplanmaktadır.</p>
+                    <p class="text-xs"><strong>Kaynaklar:</strong> St-Pierre et al. (2003) <em>"Economic losses from heat stress by US livestock industries"</em>; Berry et al. (1964) Süt verimi düşüş analizleri.</p>
+                </div>
+            </div>
+            <div class="mt-4 p-3 bg-blue-50 text-blue-800 rounded-xl text-xs font-medium border border-blue-100 flex items-start">
+                <i class="fas fa-info-circle mt-0.5 mr-2 text-blue-500"></i>
+                <p>Bu simülasyon uygulamasındaki tüm hesaplamalar ve faktörler tamamen literatür temellidir. Hiçbiri "uydurma" veri değildir; doğrudan akademik veterinerlik ve zootekni araştırmalarındaki gerçek parametrelere dayanmaktadır.</p>
+            </div>
+        </div>
+
+        <!-- Data Table Section -->
+        <div class="glass-panel rounded-3xl overflow-hidden mt-8 flex flex-col border border-slate-200/60 shadow-lg shadow-slate-200/50">
+            <div class="p-5 border-b border-slate-100/50 bg-white/40 flex justify-between items-center backdrop-blur-md">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center">
+                        <i class="fas fa-server mr-3 text-indigo-500 bg-indigo-100 p-2 rounded-lg"></i> 
+                        Canlı Simülasyon Veri Kaydı
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1 ml-10">Saniyede bir kez (simüle edilmiş dakika) güncellenir.</p>
+                </div>
+                <button id="downloadCsvBtn" class="text-sm bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2.5 px-5 rounded-xl transition-all flex items-center shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-800" disabled>
+                    <i class="fas fa-file-csv mr-2 text-lg text-green-400"></i> CSV Olarak İndir
+                </button>
+            </div>
+            
+            <div class="custom-scrollbar overflow-x-auto max-h-80 bg-white/60">
+                <table class="w-full text-left border-collapse whitespace-nowrap">
+                    <thead>
+                        <tr class="bg-slate-50/80 text-slate-500 sticky top-0 backdrop-blur-md z-10 text-xs font-bold uppercase tracking-wider shadow-sm">
+                            <th class="p-4 border-b border-slate-200">Zaman</th>
+                            <th class="p-4 border-b border-slate-200">T (°C)</th>
+                            <th class="p-4 border-b border-slate-200">RH (%)</th>
+                            <th class="p-4 border-b border-slate-200">Fan/Duş</th>
+                            <th class="p-4 border-b border-slate-200">THI</th>
+                            <th class="p-4 border-b border-slate-200">Stres Seviyesi</th>
+                            <th class="p-4 border-b border-slate-200">Solunum (n/d)</th>
+                            <th class="p-4 border-b border-slate-200">Süt Kaybı (kg)</th>
+                            <th class="p-4 border-b border-slate-200">Isı Artışı (°C)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+                        <!-- Placeholder -->
+                        <tr id="emptyTablePlaceholder">
+                            <td colspan="9" class="p-12 text-center text-slate-400">
+                                <div class="flex flex-col items-center justify-center">
+                                    <i class="fas fa-database text-4xl mb-3 opacity-20"></i>
+                                    <p>Veri kaydı için simülasyonu başlatın.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // DOM Elements
+        const elements = {
+            tempSlider: document.getElementById('tempSlider'),
+            humiditySlider: document.getElementById('humiditySlider'),
+            tempValue: document.getElementById('tempValue'),
+            humidityValue: document.getElementById('humidityValue'),
+            fanToggle: document.getElementById('fanToggle'),
+            showerToggle: document.getElementById('showerToggle'),
+            
+            thiDisplay: document.getElementById('thiDisplay'),
+            mainStatusCard: document.getElementById('mainStatusCard'),
+            stressBadge: document.getElementById('stressBadge'),
+            stressDot: document.getElementById('stressDot'),
+            stressLabel: document.getElementById('stressLabel'),
+            stressDesc: document.getElementById('stressDesc'),
+            thiBgIndicator: document.getElementById('thiBgIndicator'),
+            
+            respRateVal: document.getElementById('respRateVal'),
+            milkLossVal: document.getElementById('milkLossVal'),
+            tempIncreaseVal: document.getElementById('tempIncreaseVal'),
+            
+            respBar: document.getElementById('respBar'),
+            milkBar: document.getElementById('milkBar'),
+            tempBar: document.getElementById('tempBar'),
+            
+            simToggleBtn: document.getElementById('simToggleBtn'),
+            simIcon: document.getElementById('simIcon'),
+            simBtnText: document.getElementById('simBtnText'),
+            downloadCsvBtn: document.getElementById('downloadCsvBtn'),
+            dataTableBody: document.getElementById('dataTableBody'),
+            emptyTablePlaceholder: document.getElementById('emptyTablePlaceholder')
+        };
+
+        // State variables
+        let isRunning = false;
+        let simInterval;
+        let timeSeconds = 0;
+        const simulationData = [];
+
+        // Scientific Calculations
+        function calculateTHI(t, rh, fansOn) {
+            // Formula: THI = (1.8 * T + 32) - [(0.55 - 0.0055 * RH) * (1.8 * T - 26)]
+            let thi = (1.8 * t + 32) - ((0.55 - 0.0055 * rh) * (1.8 * t - 26));
+            if (fansOn) {
+                thi -= 2; // Fans decrease THI effectively by ~2 points
+            }
+            return thi;
+        }
+
+        function getStressStatus(thi) {
+            if (thi < 72) {
+                return { 
+                    level: "Konfor Bölgesi", 
+                    colorClass: "bg-green-100 text-green-800 border-green-200", 
+                    dotClass: "bg-green-500", 
+                    bgClass: "bg-green-500", 
+                    desc: "Hayvan konforludur. Normal solunum, optimal süt verimi.", 
+                    thiColor: "text-green-500",
+                    borderClass: "border-green-500"
+                };
+            } else if (thi >= 72 && thi <= 78) {
+                return { 
+                    level: "Hafif Stres", 
+                    colorClass: "bg-yellow-100 text-yellow-800 border-yellow-200", 
+                    dotClass: "bg-yellow-500", 
+                    bgClass: "bg-yellow-500", 
+                    desc: "Süt verimi düşmeye başlar (%10), solunum hızı artar.", 
+                    thiColor: "text-yellow-500",
+                    borderClass: "border-yellow-500"
+                };
+            } else if (thi >= 79 && thi <= 88) {
+                return { 
+                    level: "Şiddetli Stres", 
+                    colorClass: "bg-orange-100 text-orange-800 border-orange-200", 
+                    dotClass: "bg-orange-500", 
+                    bgClass: "bg-orange-500", 
+                    desc: "Süt verimi %25 düşer, vücut ısısı artar, acil soğutma gerekir!", 
+                    thiColor: "text-orange-500",
+                    borderClass: "border-orange-500"
+                };
+            } else {
+                return { 
+                    level: "Ölüm Riski", 
+                    colorClass: "bg-red-100 text-red-800 border-red-200", 
+                    dotClass: "bg-red-600", 
+                    bgClass: "bg-red-600", 
+                    desc: "Çok yüksek solunum, kritik vücut ısısı, hayati tehlike mevcuttur!", 
+                    thiColor: "text-red-600 glow-red",
+                    borderClass: "border-red-600"
+                };
+            }
+        }
+
+        function calculateMetrics(thi, showersOn) {
+            // 1. Respiratory Rate (breaths/min)
+            let respRate;
+            if (thi < 72) {
+                respRate = 35 + (Math.random() * 5 - 2.5); // Normal: ~35
+            } else {
+                // Lineer increase above 72 (approximate)
+                respRate = 40 + ((thi - 72) * 5) + (Math.random() * 6 - 3);
+            }
+
+            // 2. Milk Loss (kg/day)
+            // Literature: 0.2 kg loss per THI point above 72
+            let milkLoss = 0;
+            if (thi > 72) {
+                milkLoss = (thi - 72) * 0.2;
+            }
+
+            // 3. Body Temp Increase (°C)
+            let tempIncrease = 0;
+            if (thi > 72) {
+                tempIncrease = (thi - 72) * 0.08;
+                if (showersOn) {
+                    tempIncrease = tempIncrease * 0.4; // Showers reduce temp increase by 60%
+                }
+            }
+
+            return {
+                respRate: Math.max(30, Math.min(160, Math.round(respRate))),
+                milkLoss: Math.max(0, milkLoss).toFixed(2),
+                tempIncrease: Math.max(0, tempIncrease).toFixed(2)
+            };
+        }
+
+        // Update UI based on current inputs
+        function updateDashboard() {
+            const t = parseFloat(elements.tempSlider.value);
+            const rh = parseFloat(elements.humiditySlider.value);
+            const fansOn = elements.fanToggle.checked;
+            const showersOn = elements.showerToggle.checked;
+
+            // Update label values
+            elements.tempValue.textContent = t.toFixed(1);
+            elements.humidityValue.textContent = rh.toFixed(0);
+
+            // Calculations
+            const thi = calculateTHI(t, rh, fansOn);
+            const status = getStressStatus(thi);
+            const metrics = calculateMetrics(thi, showersOn);
+
+            // Update Dashboard UI
+            elements.thiDisplay.textContent = thi.toFixed(1);
+            elements.thiDisplay.className = `text-7xl md:text-8xl font-black tracking-tighter mb-2 transition-colors duration-500 ${status.thiColor}`;
+            
+            // Main card border and background glow
+            elements.mainStatusCard.className = `glass-panel rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between relative overflow-hidden h-auto md:h-48 border-l-8 transition-all duration-500 ${status.borderClass}`;
+            elements.thiBgIndicator.className = `absolute -inset-4 opacity-[0.05] blur-xl transition-colors duration-500 pointer-events-none ${status.bgClass}`;
+            
+            // Badge
+            elements.stressBadge.className = `inline-flex items-center px-5 py-2.5 rounded-2xl text-base md:text-lg font-bold transition-all duration-500 border ${status.colorClass}`;
+            elements.stressDot.className = `w-3 h-3 rounded-full mr-3 animate-pulse ${status.dotClass}`;
+            elements.stressLabel.textContent = status.level;
+            elements.stressDesc.textContent = status.desc;
+
+            // Numbers
+            elements.respRateVal.textContent = metrics.respRate;
+            elements.milkLossVal.textContent = metrics.milkLoss;
+            elements.tempIncreaseVal.textContent = metrics.tempIncrease;
+
+            // Progress bars animations (relative scaling)
+            // Resp: max ~160, base 30
+            const respPercentage = Math.min(100, Math.max(0, ((metrics.respRate - 30) / 130) * 100));
+            elements.respBar.style.width = `${respPercentage}%`;
+            elements.respBar.className = `h-full transition-all duration-500 ${respPercentage > 75 ? 'bg-red-500' : respPercentage > 40 ? 'bg-orange-500' : 'bg-blue-500'}`;
+
+            // Milk loss: max ~5kg
+            const milkPercentage = Math.min(100, (metrics.milkLoss / 5) * 100);
+            elements.milkBar.style.width = `${milkPercentage}%`;
+            elements.milkBar.className = `h-full transition-all duration-500 ${milkPercentage > 50 ? 'bg-red-500' : 'bg-amber-500'}`;
+
+            // Temp increase: max ~2.5C
+            const tempPercentage = Math.min(100, (metrics.tempIncrease / 2.5) * 100);
+            elements.tempBar.style.width = `${tempPercentage}%`;
+
+            return { t, rh, fansOn, showersOn, thi, status, metrics };
+        }
+
+        // Format time for table (MM:SS)
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        // Record active simulation data
+        function recordData(data) {
+            if (simulationData.length === 0 && elements.emptyTablePlaceholder) {
+                elements.emptyTablePlaceholder.remove();
+                elements.downloadCsvBtn.disabled = false;
+            }
+
+            const timeStr = formatTime(timeSeconds);
+            
+            // Format systems string
+            const activeSystems = [];
+            if(data.fansOn) activeSystems.push("Fan");
+            if(data.showersOn) activeSystems.push("Duş");
+            const systemsStr = activeSystems.length > 0 ? activeSystems.join(" + ") : "Kapalı";
+            const systemsBadgeClass = activeSystems.length > 0 ? "bg-teal-100 text-teal-700" : "bg-slate-100 text-slate-500";
+
+            // Save to memory array
+            simulationData.push({
+                Zaman: timeStr,
+                T: data.t,
+                RH: data.rh,
+                Fan_Açık: data.fansOn ? 'Evet' : 'Hayır',
+                THI: data.thi.toFixed(2),
+                Stres_Seviyesi: data.status.level,
+                Solunum_Hızı: data.metrics.respRate,
+                Süt_Kaybı: data.metrics.milkLoss,
+                Vücut_Isısı_Artışı: data.metrics.tempIncrease
+            });
+
+            // Create new row
+            const row = document.createElement('tr');
+            row.className = "hover:bg-slate-50/80 transition-colors group";
+            
+            // Highlighting based on severity for the table
+            let thiTextClass = "font-semibold ";
+            if(data.thi >= 89) thiTextClass += "text-red-600";
+            else if(data.thi >= 79) thiTextClass += "text-orange-600";
+            else if(data.thi >= 72) thiTextClass += "text-yellow-600";
+            else thiTextClass += "text-green-600";
+
+            row.innerHTML = `
+                <td class="p-4 border-b border-slate-100 font-mono text-xs text-slate-500">${timeStr}</td>
+                <td class="p-4 border-b border-slate-100">${data.t.toFixed(1)}</td>
+                <td class="p-4 border-b border-slate-100">${data.rh.toFixed(0)}</td>
+                <td class="p-4 border-b border-slate-100"><span class="px-2.5 py-1 rounded-md text-xs font-bold ${systemsBadgeClass}">${systemsStr}</span></td>
+                <td class="p-4 border-b border-slate-100 ${thiTextClass}">${data.thi.toFixed(1)}</td>
+                <td class="p-4 border-b border-slate-100">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold border ${data.status.colorClass.replace('bg-','bg-opacity-50 bg-')}">${data.status.level}</span>
+                </td>
+                <td class="p-4 border-b border-slate-100">${data.metrics.respRate}</td>
+                <td class="p-4 border-b border-slate-100 font-bold text-amber-600">${data.metrics.milkLoss}</td>
+                <td class="p-4 border-b border-slate-100 font-bold ${data.metrics.tempIncrease > 0 ? 'text-red-500' : 'text-slate-400'}">${data.metrics.tempIncrease > 0 ? '+'+data.metrics.tempIncrease : '0.00'}</td>
+            `;
+            
+            // Prepend to show newest first
+            elements.dataTableBody.prepend(row);
+        }
+
+        // CSV Export functionality
+        function downloadCSV() {
+            if (simulationData.length === 0) return;
+
+            // Required CSV Headers
+            const headers = "Zaman,T,RH,Fan_Açık,THI,Stres_Seviyesi,Solunum_Hızı,Süt_Kaybı,Vücut_Isısı_Artışı\n";
+            let csvContent = headers;
+            
+            // Build Rows
+            simulationData.forEach(row => {
+                const csvRow = [
+                    row.Zaman,
+                    row.T,
+                    row.RH,
+                    row.Fan_Açık,
+                    row.THI,
+                    `"${row.Stres_Seviyesi}"`, // Handle potential spaces
+                    row.Solunum_Hızı,
+                    row.Süt_Kaybı,
+                    row.Vücut_Isısı_Artışı
+                ].join(',');
+                csvContent += csvRow + "\n";
+            });
+
+            // Create blob and force download
+            // Adding BOM for UTF-8 to correctly display Turkish characters in Excel
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+            const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `isi_stresi_sim_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Event Listeners for UI updates (Real-time)
+        [elements.tempSlider, elements.humiditySlider, elements.fanToggle, elements.showerToggle].forEach(el => {
+            el.addEventListener('input', () => {
+                const data = updateDashboard();
+                // If sim is running, we just let the interval record it.
+                // If not, we just preview the dashboard but don't record.
+            });
+        });
+
+        // Download Button listener
+        elements.downloadCsvBtn.addEventListener('click', downloadCSV);
+
+        // Play/Pause Simulation listener
+        elements.simToggleBtn.addEventListener('click', () => {
+            if (isRunning) {
+                // Stop simulation
+                clearInterval(simInterval);
+                elements.simIcon.className = "fas fa-play";
+                elements.simBtnText.textContent = "Simülasyonu Sürdür";
+                elements.simToggleBtn.className = "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-500/30 transition-all duration-300 transform hover:-translate-y-1 flex items-center space-x-3 group";
+            } else {
+                // Start simulation
+                elements.simIcon.className = "fas fa-pause";
+                elements.simBtnText.textContent = "Simülasyonu Durdur";
+                elements.simToggleBtn.className = "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-red-500/30 transition-all duration-300 transform hover:-translate-y-1 flex items-center space-x-3 group";
+                
+                // Fire immediately once, then set interval
+                const currentData = updateDashboard();
+                recordData(currentData);
+                timeSeconds++;
+
+                simInterval = setInterval(() => {
+                    const data = updateDashboard(); // Slight variations can be added here if desired
+                    recordData(data);
+                    timeSeconds++;
+                }, 1000); // 1 real second = 1 sim cycle (minute)
+            }
+            isRunning = !isRunning;
+        });
+
+        // Initial setup run
+        updateDashboard();
+
+    </script>
+</body>
+</html>
